@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCTP Data Science & AI — Video Presentation</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #03060f;
+  --surface: #0d1117;
+  --card: #111827;
+  --border: rgba(255,255,255,0.08);
+  --accent: #6366f1;
+  --accent2: #8b5cf6;
+  --cyan: #22d3ee;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --white: #f8fafc;
+  --muted: #64748b;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+/* ── CANVAS BACKGROUND ──────────────────────────────── */
+#bgCanvas {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+/* ── PRESENTATION WRAPPER ───────────────────────────── */
+#app {
+  position: relative; z-index: 1;
+  width: 100%; height: 100vh;
+  display: flex; flex-direction: column;
+}
+
+/* ── PROGRESS BAR ───────────────────────────────────── */
+#progress-track {
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+#progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--accent), var(--cyan));
+  transition: width 0.4s ease;
+  box-shadow: 0 0 12px rgba(99,102,241,0.8);
+}
+
+/* ── SLIDE CONTAINER ────────────────────────────────── */
+#slide-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px 20px 16px;
+  opacity: 0;
+  transform: translateX(60px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
+}
+.slide.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: all;
+}
+.slide.exit {
+  opacity: 0;
+  transform: translateX(-60px);
+}
+
+/* ── CONTROLS ───────────────────────────────────────── */
+#controls {
+  flex-shrink: 0;
+  padding: 10px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(to top, rgba(3,6,15,0.98) 80%, transparent);
+}
+
+#slide-counter {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+#btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ctrl-btn {
+  height: 48px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.ctrl-btn:hover { background: rgba(255,255,255,0.08); }
+.ctrl-btn:active { transform: scale(0.96); }
+
+#btn-prev, #btn-next { width: 52px; font-size: 18px; flex-shrink: 0; }
+#btn-play {
+  flex: 1;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  font-size: 15px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+}
+#btn-play:hover { box-shadow: 0 6px 28px rgba(99,102,241,0.5); }
+#btn-play.playing { background: linear-gradient(135deg, #dc2626, #9f1239); }
+
+/* ── NARRATION BAR ──────────────────────────────────── */
+#narration-bar {
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #a5b4fc;
+  line-height: 1.5;
+  min-height: 36px;
+  text-align: center;
+  font-style: italic;
+  transition: opacity 0.3s;
+}
+
+/* ── SLIDE CONTENT STYLES ───────────────────────────── */
+
+/* BADGE */
+.slide-badge {
+  display: inline-block;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.4);
+  color: #a5b4fc;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border-radius: 20px;
+  margin-bottom: 14px;
+}
+
+/* HERO TITLE */
+.hero-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(28px, 8vw, 52px);
+  font-weight: 900;
+  line-height: 1.05;
+  text-align: center;
+  background: linear-gradient(135deg, #fff 20%, #a5b4fc 60%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 14px;
+}
+
+.slide-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(22px, 6vw, 38px);
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.slide-sub {
+  font-size: 14px;
+  color: #94a3b8;
+  text-align: center;
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+
+/* CARDS GRID */
+.cards-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 540px;
+}
+
+.info-card {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+  animation: cardIn 0.5s ease both;
+}
+.info-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+}
+.info-card.accent::before { background: linear-gradient(to right, var(--accent), var(--accent2)); }
+.info-card.cyan::before { background: linear-gradient(to right, var(--cyan), var(--green)); }
+.info-card.yellow::before { background: linear-gradient(to right, var(--yellow), #f97316); }
+.info-card.green::before { background: linear-gradient(to right, var(--green), var(--cyan)); }
+
+.info-card .card-icon { font-size: 28px; margin-bottom: 8px; }
+.info-card h3 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.info-card p { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* PIPELINE */
+.pipeline-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 540px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: none;
+}
+.pipeline-wrap::-webkit-scrollbar { display: none; }
+
+.pipe-node {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: nodeIn 0.4s ease both;
+}
+.pipe-circle {
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: rgba(99,102,241,0.1);
+  border: 1.5px solid rgba(99,102,241,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 20px rgba(99,102,241,0.2);
+}
+.pipe-node.active .pipe-circle {
+  background: rgba(99,102,241,0.25);
+  border-color: var(--accent);
+  box-shadow: 0 0 24px rgba(99,102,241,0.5);
+  animation: pulse 1.5s ease infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 20px rgba(99,102,241,0.4); }
+  50% { box-shadow: 0 0 36px rgba(99,102,241,0.8); }
+}
+.pipe-label { font-size: 9px; color: #64748b; text-align: center; max-width: 60px; line-height: 1.3; }
+.pipe-arrow { color: rgba(99,102,241,0.5); font-size: 14px; flex-shrink: 0; margin-top: -20px; }
+
+@keyframes nodeIn {
+  from { opacity: 0; scale: 0.7; }
+  to { opacity: 1; scale: 1; }
+}
+
+/* COMPARE */
+.compare-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 540px;
+}
+
+.compare-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  animation: cardIn 0.5s ease both;
+}
+.compare-header {
+  padding: 12px;
+  text-align: center;
+}
+.compare-header.blue { background: rgba(59,130,246,0.2); border-bottom: 1px solid rgba(59,130,246,0.2); }
+.compare-header.violet { background: rgba(139,92,246,0.2); border-bottom: 1px solid rgba(139,92,246,0.2); }
+.compare-header .ch-emoji { font-size: 26px; display: block; margin-bottom: 4px; }
+.compare-header .ch-label { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; }
+.compare-body { padding: 12px; background: rgba(255,255,255,0.02); }
+.compare-row { font-size: 11px; color: #94a3b8; margin-bottom: 5px; line-height: 1.4; }
+.compare-row.green { color: #6ee7b7; }
+.compare-row.red { color: #fca5a5; }
+
+/* BIG STAT */
+.stat-row { display: flex; gap: 14px; width: 100%; max-width: 500px; margin: 8px 0; }
+.stat-box {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 16px 10px;
+  text-align: center;
+  animation: cardIn 0.5s ease both;
+}
+.stat-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 32px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--accent), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label { font-size: 11px; color: #64748b; margin-top: 4px; }
+
+/* CODE */
+.code-box {
+  background: #050a14;
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.9;
+  width: 100%;
+  max-width: 540px;
+  animation: cardIn 0.5s ease 0.2s both;
+}
+.code-box .c { color: #3b4668; }
+.code-box .k { color: #818cf8; }
+.code-box .s { color: #34d399; }
+.code-box .f { color: #38bdf8; }
+.code-box .v { color: #fbbf24; }
+
+/* TAKEAWAY */
+.takeaway-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 540px;
+}
+.takeaway-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  padding: 12px 14px;
+  animation: cardIn 0.4s ease both;
+}
+.takeaway-num {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.takeaway-text { font-size: 13px; line-height: 1.5; color: #cbd5e1; padding-top: 2px; }
+
+/* CNN LAYERS VIZ */
+.cnn-viz {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  max-width: 480px;
+  padding: 10px 0;
+}
+.cnn-layer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  animation: layerIn 0.4s ease both;
+}
+.cnn-block {
+  border-radius: 6px;
+  width: 44px;
+}
+.cnn-label { font-size: 9px; color: #64748b; text-align: center; max-width: 50px; line-height: 1.3; }
+
+@keyframes layerIn {
+  from { opacity: 0; transform: scaleY(0); transform-origin: bottom; }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+/* TOPIC CHIPS */
+.chip-cloud { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 480px; }
+.chip {
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  animation: cardIn 0.4s ease both;
+}
+
+/* SPEAKER WAVE */
+#speaker-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+}
+#speaker-wave span {
+  display: inline-block;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: wave 1s ease-in-out infinite;
+  opacity: 0;
+}
+#speaker-wave.active span { opacity: 1; }
+#speaker-wave span:nth-child(1) { animation-delay: 0s; }
+#speaker-wave span:nth-child(2) { animation-delay: 0.1s; }
+#speaker-wave span:nth-child(3) { animation-delay: 0.2s; }
+#speaker-wave span:nth-child(4) { animation-delay: 0.15s; }
+#speaker-wave span:nth-child(5) { animation-delay: 0.05s; }
+@keyframes wave {
+  0%,100% { height: 4px; }
+  50% { height: 18px; }
+}
+
+/* FLOATING ORBS */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.12;
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+/* SLIDE-SPECIFIC LAYOUTS */
+.slide-hero { gap: 10px; }
+.slide-content { gap: 10px; align-items: flex-start; padding-top: 16px; }
+.slide-centered { gap: 12px; }
+
+.full-width { width: 100%; max-width: 540px; }
+
+/* SWIPE HINT */
+#swipe-hint {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(99,102,241,0.9);
+  color: white;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 100;
+  animation: fadeInOut 3s ease forwards;
+  pointer-events: none;
+}
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div id="swipe-hint">👆 Swipe left/right to navigate</div>
+
+<div id="app">
+  <div id="progress-track"><div id="progress-fill"></div></div>
+
+  <div id="slide-container">
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 0: TITLE -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide active" data-narration="Welcome to the SCTP Advanced Professional Certificate in Data Science and Artificial Intelligence. In this presentation, we will explore four key concepts that came up in our class Q and A session: Semantic Layers, Image Tagging, Rule-Based versus Dynamic decision making, and a live Natural Language Processing demo. Let's get started!">
+      <div class="orb" style="width:200px;height:200px;background:var(--accent);top:-40px;right:-40px;animation-delay:0s"></div>
+      <div class="orb" style="width:150px;height:150px;background:var(--cyan);bottom:20px;left:-30px;animation-delay:3s"></div>
+
+      <div class="slide-badge">SCTP Cohort 3</div>
+      <div class="hero-title">Data Science<br>& AI Concepts</div>
+      <p class="slide-sub">Advanced Professional Certificate<br>Class Q&A — Interactive Explanation</p>
+
+      <div class="stat-row">
+        <div class="stat-box"><div class="stat-num">4</div><div class="stat-label">Key Topics</div></div>
+        <div class="stat-box"><div class="stat-num">~45</div><div class="stat-label">Minutes</div></div>
+        <div class="stat-box"><div class="stat-num">∞</div><div class="stat-label">Possibilities</div></div>
+      </div>
+
+      <div class="chip-cloud" style="margin-top:10px;">
+        <span class="chip" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;animation-delay:0.1s">🧠 Semantic Layers</span>
+        <span class="chip" style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.3);color:#67e8f9;animation-delay:0.2s">🖼️ Image Tagging</span>
+        <span class="chip" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fcd34d;animation-delay:0.3s">⚖️ Rule vs Dynamic</span>
+        <span class="chip" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;animation-delay:0.4s">⚡ Live NLP Demo</span>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 1: UNSTRUCTURED DATA -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Let's start with a fundamental question. What is unstructured data? Structured data fits neatly into rows and columns — like an Excel spreadsheet. Unstructured data has no fixed shape or format. Think about customer reviews, voice recordings, medical X-rays, or social media posts. Here is a startling fact: approximately 80 percent of all enterprise data is unstructured. This is where most of the valuable insight is hidden, and it is the hardest for traditional systems to process.">
+      <div class="slide-badge">Topic 1 of 4 — Semantic Layers</div>
+      <div class="slide-title">What is<br>Unstructured Data?</div>
+
+      <div class="cards-row">
+        <div class="info-card accent" style="animation-delay:0.1s">
+          <div class="card-icon">📊</div>
+          <h3>Structured Data</h3>
+          <p>Fixed rows & columns. Excel, SQL tables, databases. Easy for computers.</p>
+        </div>
+        <div class="info-card cyan" style="animation-delay:0.2s">
+          <div class="card-icon">🌊</div>
+          <h3>Unstructured Data</h3>
+          <p>No fixed format. Text, images, audio, video. 80% of all enterprise data!</p>
+        </div>
+      </div>
+
+      <div class="stat-row" style="margin:10px 0;">
+        <div class="stat-box" style="animation-delay:0.3s"><div class="stat-num">80%</div><div class="stat-label">of enterprise data is unstructured</div></div>
+        <div class="stat-box" style="animation-delay:0.4s"><div class="stat-num">5×</div><div class="stat-label">faster growth than structured data</div></div>
+      </div>
+
+      <div class="chip-cloud">
+        <span class="chip" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);color:#a5b4fc;animation-delay:0.3s">📝 Reviews</span>
+        <span class="chip" style="background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.2);color:#67e8f9;animation-delay:0.35s">🎵 Audio</span>
+        <span class="chip" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);color:#c4b5fd;animation-delay:0.4s">🖼️ Images</span>
+        <span class="chip" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);color:#6ee7b7;animation-delay:0.45s">📹 Video</span>
+        <span class="chip" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);color:#fcd34d;animation-delay:0.5s">📄 PDFs</span>
+        <span class="chip" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#fca5a5;animation-delay:0.55s">💬 Social Media</span>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 2: SEMANTIC LAYER -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="So how do we give meaning to unstructured data? The answer is a Semantic Layer. If I show a computer the phrases 'package arrived very late' and 'delayed delivery,' it sees two completely different sequences of characters. A semantic layer converts both phrases into numerical vectors — lists of numbers — where similar meanings produce similar numbers. The result? The computer now understands that these two phrases mean essentially the same thing. This is powered by models like BERT and Word2Vec, and stored in vector databases like Pinecone or ChromaDB.">
+      <div class="slide-badge">Topic 1 of 4 — Semantic Layers</div>
+      <div class="slide-title">The Semantic Layer</div>
+      <p class="slide-sub">Giving machines the ability to understand meaning</p>
+
+      <div class="full-width" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:'JetBrains Mono',monospace;">Without Semantic Layer:</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:5px 10px;border-radius:8px;font-size:12px;">"Package arrived very late"</span>
+          <span style="color:var(--red);font-size:18px;">≠</span>
+          <span style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:5px 10px;border-radius:8px;font-size:12px;">"Delayed delivery"</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin:10px 0 8px;font-family:'JetBrains Mono',monospace;">With Semantic Layer (embeddings):</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;padding:5px 10px;border-radius:8px;font-size:12px;">"Package arrived very late"</span>
+          <span style="color:var(--green);font-size:18px;">≈</span>
+          <span style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;padding:5px 10px;border-radius:8px;font-size:12px;">"Delayed delivery"</span>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#6ee7b7;font-family:'JetBrains Mono',monospace;">Similarity score: 0.94 ← nearly identical meaning!</div>
+      </div>
+
+      <div class="cards-row">
+        <div class="info-card accent" style="animation-delay:0.1s">
+          <div class="card-icon">📐</div>
+          <h3>Embeddings</h3>
+          <p>BERT, Word2Vec. Convert text → 384-dim vectors where meaning = proximity.</p>
+        </div>
+        <div class="info-card cyan" style="animation-delay:0.2s">
+          <div class="card-icon">🗄️</div>
+          <h3>Vector DB</h3>
+          <p>Pinecone, ChromaDB. Store & search millions of vectors by similarity.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 3: PIPELINE -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Here is the complete semantic pipeline from raw unstructured text to searchable knowledge. Step one: raw text comes in — a customer review, a support ticket, a social media post. Step two: tokenization breaks it into individual words and sub-words. Step three: an embedding model like BERT converts those tokens into high-dimensional vectors. Step four: those vectors are stored in a vector database. Step five: when you run a search query, it is also converted to a vector, and we find the closest matching documents in the database. This is how modern semantic search and recommendation systems work.">
+      <div class="slide-badge">Topic 1 of 4 — Semantic Layers</div>
+      <div class="slide-title">The Semantic Pipeline</div>
+      <p class="slide-sub">From raw text to searchable knowledge</p>
+
+      <div class="pipeline-wrap">
+        <div class="pipe-node active" style="animation-delay:0s">
+          <div class="pipe-circle">📝</div>
+          <div class="pipe-label">Raw Text Input</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" style="animation-delay:0.1s">
+          <div class="pipe-circle">🔤</div>
+          <div class="pipe-label">Tokenization</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" style="animation-delay:0.2s">
+          <div class="pipe-circle">🧠</div>
+          <div class="pipe-label">BERT Embedding</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" style="animation-delay:0.3s">
+          <div class="pipe-circle">🗄️</div>
+          <div class="pipe-label">Vector DB Store</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" style="animation-delay:0.4s">
+          <div class="pipe-circle">🔍</div>
+          <div class="pipe-label">Semantic Search</div>
+        </div>
+      </div>
+
+      <div class="code-box">
+        <div class="c"># Python: Semantic search in 5 lines</div>
+        <div><span class="k">from</span> sentence_transformers <span class="k">import</span> <span class="f">SentenceTransformer</span></div>
+        <div>model = <span class="f">SentenceTransformer</span>(<span class="s">'all-MiniLM-L6-v2'</span>)</div>
+        <div>texts = [<span class="s">"late delivery"</span>, <span class="s">"package delayed"</span>]</div>
+        <div>embeddings = model.<span class="f">encode</span>(texts)</div>
+        <div class="c"># cosine_similarity → 0.94  (nearly same meaning!)</div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 4: IMAGE TAGGING INTRO -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Now let's talk about image tagging. Images are the ultimate unstructured data. There is no text, no column, no schema — just a grid of millions of pixel values. Yet modern artificial intelligence can look at an image and instantly produce rich, accurate tags like 'beach,' 'ocean,' 'sunny,' each with a confidence percentage. How does this work? The answer is Convolutional Neural Networks, or CNNs. Let me walk you through the pipeline.">
+      <div class="slide-badge">Topic 2 of 4 — Image Tagging</div>
+      <div class="slide-title">How to Tag<br>a Picture</div>
+      <p class="slide-sub">From raw pixels to meaningful labels using CNNs</p>
+
+      <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin:10px 0;flex-wrap:wrap;">
+        <div style="text-align:center;animation:cardIn 0.4s ease both;">
+          <div style="font-size:56px;">🏖️</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Input Image</div>
+        </div>
+        <div style="font-size:28px;color:rgba(99,102,241,0.6);animation:cardIn 0.4s ease 0.2s both;">→</div>
+        <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:12px;animation:cardIn 0.4s ease 0.3s both;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">AI Output Tags</div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;justify-content:space-between;gap:20px;font-size:12px;"><span style="color:#a5b4fc;">🏷️ Beach</span><span style="color:var(--green);font-weight:700;">97%</span></div>
+            <div style="display:flex;justify-content:space-between;gap:20px;font-size:12px;"><span style="color:#a5b4fc;">🏷️ Ocean</span><span style="color:var(--green);font-weight:700;">93%</span></div>
+            <div style="display:flex;justify-content:space-between;gap:20px;font-size:12px;"><span style="color:#a5b4fc;">🏷️ Sunny</span><span style="color:var(--yellow);font-weight:700;">82%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cards-row">
+        <div class="info-card yellow" style="animation-delay:0.1s">
+          <div class="card-icon">🔬</div>
+          <h3>How It Works</h3>
+          <p>Convolutional Neural Networks (CNNs) process images layer by layer.</p>
+        </div>
+        <div class="info-card green" style="animation-delay:0.2s">
+          <div class="card-icon">🏭</div>
+          <h3>Real Tools</h3>
+          <p>HuggingFace ViT, AWS Rekognition, Google Cloud Vision, Azure AI.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 5: CNN LAYERS -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Here is how a CNN builds understanding, layer by layer. The first layers detect the simplest features: edges, corners, and colour gradients. The middle layers combine those edges into shapes and textures — circles, patterns, fur, wood grain. The deeper layers combine shapes into recognisable objects and scene elements. The final classification head maps all of this to a probability distribution over thousands of categories. The brilliant insight of deep learning is that the network learns all of these representations automatically from training data — you never have to hand-code what an edge or a beach looks like.">
+      <div class="slide-badge">Topic 2 of 4 — Image Tagging</div>
+      <div class="slide-title">CNN Layers —<br>Building Understanding</div>
+      <p class="slide-sub">Each layer learns more abstract features</p>
+
+      <div class="cnn-viz">
+        <div class="cnn-layer" style="animation-delay:0s">
+          <div class="cnn-block" style="height:30px;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);"></div>
+          <div class="cnn-block" style="height:30px;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);"></div>
+          <div class="cnn-block" style="height:30px;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);"></div>
+          <div class="cnn-label">Layer 1<br>Edges & Colors</div>
+        </div>
+        <div style="color:rgba(255,255,255,0.2);font-size:12px;margin-bottom:22px;">→</div>
+        <div class="cnn-layer" style="animation-delay:0.1s">
+          <div class="cnn-block" style="height:50px;background:rgba(139,92,246,0.3);border:1px solid rgba(139,92,246,0.5);"></div>
+          <div class="cnn-block" style="height:50px;background:rgba(139,92,246,0.3);border:1px solid rgba(139,92,246,0.5);"></div>
+          <div class="cnn-label">Layer 2<br>Shapes & Textures</div>
+        </div>
+        <div style="color:rgba(255,255,255,0.2);font-size:12px;margin-bottom:22px;">→</div>
+        <div class="cnn-layer" style="animation-delay:0.2s">
+          <div class="cnn-block" style="height:70px;background:rgba(34,211,238,0.25);border:1px solid rgba(34,211,238,0.5);"></div>
+          <div class="cnn-label">Layer 3<br>Objects & Parts</div>
+        </div>
+        <div style="color:rgba(255,255,255,0.2);font-size:12px;margin-bottom:22px;">→</div>
+        <div class="cnn-layer" style="animation-delay:0.3s">
+          <div class="cnn-block" style="height:90px;background:rgba(16,185,129,0.25);border:1px solid rgba(16,185,129,0.5);"></div>
+          <div class="cnn-label">Deep Layers<br>Scene & Context</div>
+        </div>
+        <div style="color:rgba(255,255,255,0.2);font-size:12px;margin-bottom:22px;">→</div>
+        <div class="cnn-layer" style="animation-delay:0.4s">
+          <div style="width:48px;height:48px;border-radius:50%;background:rgba(245,158,11,0.25);border:1px solid rgba(245,158,11,0.6);display:flex;align-items:center;justify-content:center;font-size:18px;">🏷️</div>
+          <div class="cnn-label">Output<br>Tags + Scores</div>
+        </div>
+      </div>
+
+      <div class="code-box" style="margin-top:8px;">
+        <div class="c"># HuggingFace: Image tagging in 3 lines</div>
+        <div><span class="k">from</span> transformers <span class="k">import</span> pipeline</div>
+        <div>clf = <span class="f">pipeline</span>(<span class="s">"image-classification"</span>)</div>
+        <div>result = <span class="f">clf</span>(<span class="s">"photo.jpg"</span>)</div>
+        <div class="c"># → [{'label':'beach', 'score': 0.97}, ...]</div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 6: RULE-BASED -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Now for one of the most practical decisions you will face as a data scientist: should I use rule-based logic or machine learning? Let's start with rule-based systems. These are exactly what they sound like: if this condition is true, then take this action. A loan approval checklist. A spam filter that blocks emails containing certain keywords. A factory alarm that fires when temperature exceeds 80 degrees. The key strengths are transparency, predictability, and auditability. You can always explain exactly why a decision was made. The weakness: rules only cover what you thought of in advance. They break on edge cases, and maintaining them as the world changes is very expensive.">
+      <div class="slide-badge">Topic 3 of 4 — Rule vs Dynamic</div>
+      <div class="slide-title">Rule-Based<br>Systems</div>
+      <p class="slide-sub">When logic is clear, explicit, and fixed</p>
+
+      <div class="code-box" style="margin-bottom:10px;">
+        <div class="c"># Classic rule-based loan approval</div>
+        <div><span class="k">if</span> age > <span class="v">18</span> <span class="k">and</span> income > <span class="v">30000</span>:</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;approve = <span class="k">True</span></div>
+        <div><span class="k">elif</span> credit_score < <span class="v">500</span>:</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;approve = <span class="k">False</span></div>
+        <div class="c"># Transparent. Predictable. But brittle!</div>
+      </div>
+
+      <div class="cards-row">
+        <div class="info-card green" style="animation-delay:0.1s">
+          <div class="card-icon">✅</div>
+          <h3>Best For</h3>
+          <p>Fixed criteria, regulatory audits, safety systems, small datasets, high explainability needs.</p>
+        </div>
+        <div class="info-card" style="border-color:rgba(239,68,68,0.2);animation-delay:0.2s">
+          <div class="card-icon">⚠️</div>
+          <h3>Limitations</h3>
+          <p>Cannot adapt to new patterns. Expensive to maintain. Fails on edge cases.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 7: DYNAMIC ML -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Dynamic machine learning systems take a completely different approach. Instead of you specifying the rules, the model discovers them from data. Fraud detection is the classic example — patterns change weekly, and you simply cannot write rules fast enough. Netflix recommendations are personalised for each of a hundred million users — that is impossible with hand-written rules. The strengths are adaptability, scalability, and the ability to handle complexity that humans cannot articulate. The tradeoff: these systems can be harder to explain. When a model denies a loan, it can be difficult to say exactly why. This is why in regulated industries, you often combine both approaches.">
+      <div class="slide-badge">Topic 3 of 4 — Rule vs Dynamic</div>
+      <div class="slide-title">Dynamic ML<br>Systems</div>
+      <p class="slide-sub">When patterns are complex and constantly changing</p>
+
+      <div class="code-box" style="margin-bottom:10px;">
+        <div class="c"># ML model learns rules from 1M past loans</div>
+        <div>model = <span class="f">RandomForestClassifier</span>()</div>
+        <div>model.<span class="f">fit</span>(X_train, y_train)</div>
+        <div>prob = model.<span class="f">predict_proba</span>(new_customer)</div>
+        <div class="c"># → 0.87 probability of approval</div>
+        <div class="c"># Model found 47 patterns humans never wrote!</div>
+      </div>
+
+      <div class="cards-row">
+        <div class="info-card cyan" style="animation-delay:0.1s">
+          <div class="card-icon">🚀</div>
+          <h3>Best For</h3>
+          <p>Fraud detection, recommendations, image recognition, NLP — where patterns shift or are too complex.</p>
+        </div>
+        <div class="info-card" style="border-color:rgba(245,158,11,0.2);animation-delay:0.2s">
+          <div class="card-icon">⚠️</div>
+          <h3>Tradeoffs</h3>
+          <p>Needs labelled training data. Can be a black box. Requires monitoring for bias and drift.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 8: DECISION GUIDE -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="So how do you decide which to use? Here is a practical framework. Choose rule-based when: the criteria are clear and fixed, you need to explain every decision to a regulator, you have limited labelled training data, or the patterns change rarely. Choose dynamic machine learning when: patterns are complex or evolve frequently, you have large volumes of labelled data, accuracy is more important than perfect explainability, or the task involves perception like images, audio, or language. Remember: the best production systems often combine both — rules for speed and compliance, machine learning for accuracy and adaptability.">
+      <div class="slide-badge">Topic 3 of 4 — Rule vs Dynamic</div>
+      <div class="slide-title">How to Choose?</div>
+      <p class="slide-sub">A practical decision framework</p>
+
+      <div class="compare-wrap">
+        <div class="compare-card" style="animation-delay:0.1s">
+          <div class="compare-header blue">
+            <span class="ch-emoji">📋</span>
+            <span class="ch-label" style="color:#93c5fd;">Choose Rule-Based</span>
+          </div>
+          <div class="compare-body">
+            <div class="compare-row green">✓ Fixed, clear criteria</div>
+            <div class="compare-row green">✓ Regulatory audit needed</div>
+            <div class="compare-row green">✓ Small dataset</div>
+            <div class="compare-row green">✓ Rarely changing patterns</div>
+            <div class="compare-row green">✓ Safety-critical systems</div>
+          </div>
+        </div>
+        <div class="compare-card" style="animation-delay:0.2s">
+          <div class="compare-header violet">
+            <span class="ch-emoji">🤖</span>
+            <span class="ch-label" style="color:#c4b5fd;">Choose Dynamic ML</span>
+          </div>
+          <div class="compare-body">
+            <div class="compare-row green">✓ Complex patterns</div>
+            <div class="compare-row green">✓ Large labelled dataset</div>
+            <div class="compare-row green">✓ Patterns evolve rapidly</div>
+            <div class="compare-row green">✓ Needs personalisation</div>
+            <div class="compare-row green">✓ Image, audio, or NLP tasks</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:12px 16px;width:100%;max-width:540px;margin-top:8px;animation:cardIn 0.4s ease 0.3s both;">
+        <div style="font-size:12px;color:#a5b4fc;font-weight:700;margin-bottom:4px;">💡 Pro Tip</div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Production systems often combine both. Rules for speed & compliance → ML for accuracy & adaptability.</div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 9: NLP DEMO INTRO -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Now let's tie everything together with a live Natural Language Processing demo. This simulates what a real customer analytics platform does. We take unstructured customer feedback text, pass it through a semantic layer to extract topics, and apply a rule-based engine to classify sentiment. The flow has four stages: first, raw text comes in. Second, a semantic layer tokenises and analyses it. Third, a rule engine classifies the sentiment as positive, negative, or neutral. Fourth, we output structured tags and a sentiment score. In a production system, this output might trigger a support ticket, alert a manager, or feed into a real-time dashboard tracking customer satisfaction.">
+      <div class="slide-badge">Topic 4 of 4 — Live NLP Demo</div>
+      <div class="slide-title">Live NLP Demo</div>
+      <p class="slide-sub">Semantic analysis meets rule-based classification</p>
+
+      <div class="pipeline-wrap" style="margin:10px 0;">
+        <div class="pipe-node" style="animation-delay:0s">
+          <div class="pipe-circle" style="border-color:rgba(59,130,246,0.5);background:rgba(59,130,246,0.1);">💬</div>
+          <div class="pipe-label">Customer Feedback</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" style="animation-delay:0.1s">
+          <div class="pipe-circle" style="border-color:rgba(139,92,246,0.5);background:rgba(139,92,246,0.1);">🧠</div>
+          <div class="pipe-label">Semantic Layer</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" style="animation-delay:0.2s">
+          <div class="pipe-circle" style="border-color:rgba(245,158,11,0.5);background:rgba(245,158,11,0.1);">📋</div>
+          <div class="pipe-label">Rule Engine</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" style="animation-delay:0.3s">
+          <div class="pipe-circle" style="border-color:rgba(16,185,129,0.5);background:rgba(16,185,129,0.1);">🏷️</div>
+          <div class="pipe-label">Tags + Sentiment</div>
+        </div>
+      </div>
+
+      <div class="full-width" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px;animation:cardIn 0.4s ease 0.2s both;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Example Input:</div>
+        <div style="font-size:13px;color:#e2e8f0;font-style:italic;margin-bottom:10px;">"The delivery was terrible and took 2 weeks. Very disappointed with the service."</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;">😞 Negative  92%</span>
+          <span style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;padding:4px 10px;border-radius:20px;font-size:11px;">📦 Delivery</span>
+          <span style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;padding:4px 10px;border-radius:20px;font-size:11px;">🛎️ Service</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 10: PRODUCTION SYSTEMS -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="This demo uses a simple keyword rule engine for sentiment — it works, but it has limitations. It would miss sarcasm like 'oh great, another delay,' and negations like 'not good' would be misclassified as positive. In a real production system, you would replace this with a fine-tuned BERT model that understands context. You would store all feedback embeddings in a vector database, enabling powerful queries like: 'show me all complaints similar to this one' across millions of reviews instantly. The key insight is that semantic layers, CNNs, rule engines, and machine learning models are building blocks. The art of data science is knowing how to combine them effectively for your specific problem.">
+      <div class="slide-badge">Topic 4 of 4 — Live NLP Demo</div>
+      <div class="slide-title">From Demo to<br>Production</div>
+      <p class="slide-sub">How real enterprise systems are built</p>
+
+      <div class="takeaway-list">
+        <div class="takeaway-item" style="animation-delay:0.05s">
+          <div class="takeaway-num" style="background:rgba(59,130,246,0.8);">1</div>
+          <div class="takeaway-text"><strong style="color:#93c5fd;">Rule Engine (Demo)</strong> — Fast keyword matching. Transparent but misses sarcasm and context.</div>
+        </div>
+        <div class="takeaway-item" style="animation-delay:0.1s">
+          <div class="takeaway-num" style="background:rgba(139,92,246,0.8);">2</div>
+          <div class="takeaway-text"><strong style="color:#c4b5fd;">Fine-tuned BERT (Production)</strong> — Understands context, negation, sarcasm. Runs on GPU at scale.</div>
+        </div>
+        <div class="takeaway-item" style="animation-delay:0.15s">
+          <div class="takeaway-num" style="background:rgba(34,211,238,0.8);">3</div>
+          <div class="takeaway-text"><strong style="color:#67e8f9;">Vector DB Search</strong> — Store all embeddings. Query: 'find all complaints similar to this one' — instantly.</div>
+        </div>
+        <div class="takeaway-item" style="animation-delay:0.2s">
+          <div class="takeaway-num" style="background:rgba(16,185,129,0.8);">4</div>
+          <div class="takeaway-text"><strong style="color:#6ee7b7;">Combine Both</strong> — Rules for speed & compliance, ML for accuracy & intelligence.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 11: KEY TAKEAWAYS -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Let's wrap up with the four key ideas to take away from today's session. Number one: Semantic layers give machines the ability to understand meaning — embeddings turn words and images into vectors where similarity equals proximity. Number two: Image tagging uses Convolutional Neural Networks that build understanding layer by layer, from pixels to objects to scenes. Number three: Rule-based versus Dynamic is a design choice — choose based on explainability needs, data volume, and pattern complexity. Number four: The best production systems combine both approaches — rules for speed and transparency, machine learning for accuracy and adaptability. These four concepts are the foundation of nearly every modern AI system you will encounter in industry.">
+      <div class="slide-badge">Summary</div>
+      <div class="slide-title">4 Key Takeaways</div>
+
+      <div class="takeaway-list">
+        <div class="takeaway-item" style="animation-delay:0.05s">
+          <div class="takeaway-num">1</div>
+          <div class="takeaway-text"><strong style="color:#a5b4fc;">Semantic layers</strong> give meaning to unstructured data — embeddings make similar meanings cluster together in vector space.</div>
+        </div>
+        <div class="takeaway-item" style="animation-delay:0.1s">
+          <div class="takeaway-num">2</div>
+          <div class="takeaway-text"><strong style="color:#67e8f9;">Image tagging</strong> uses CNNs that learn hierarchically — edges → shapes → objects → scenes.</div>
+        </div>
+        <div class="takeaway-item" style="animation-delay:0.15s">
+          <div class="takeaway-num">3</div>
+          <div class="takeaway-text"><strong style="color:#fcd34d;">Rule vs Dynamic</strong> is a deliberate design decision based on explainability, data volume, and pattern complexity.</div>
+        </div>
+        <div class="takeaway-item" style="animation-delay:0.2s">
+          <div class="takeaway-num">4</div>
+          <div class="takeaway-text"><strong style="color:#6ee7b7;">Combine both</strong> in production — rules for speed & compliance, ML for accuracy & adaptability at scale.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <!-- SLIDE 12: END -->
+    <!-- ─────────────────────────────────────────────────────────────── -->
+    <div class="slide" data-narration="Thank you for attending this session. Your next practical step is to install the HuggingFace transformers library and try image classification and text embedding on your own dataset. Everything we covered today is available as open-source Python libraries — you can build your first semantic search engine or image tagger this weekend. Remember: the best data scientists are not those who know the most theory, but those who can select the right tool for the right problem. Well done on completing this module, and good luck with the rest of your SCTP journey!">
+      <div class="orb" style="width:200px;height:200px;background:var(--green);top:-40px;left:-40px;animation-delay:1s"></div>
+      <div class="orb" style="width:150px;height:150px;background:var(--cyan);bottom:20px;right:-30px;animation-delay:4s"></div>
+
+      <div style="font-size:64px;margin-bottom:14px;animation:cardIn 0.5s ease both;">🎓</div>
+      <div class="hero-title" style="font-size:clamp(24px,7vw,44px);">Well Done!</div>
+      <p class="slide-sub" style="max-width:400px;">You've covered the foundations of semantic AI, computer vision, and decision system design.</p>
+
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:16px;padding:16px;width:100%;max-width:480px;margin:10px 0;animation:cardIn 0.4s ease 0.2s both;">
+        <div style="font-size:13px;font-weight:700;color:#6ee7b7;margin-bottom:10px;">🚀 Your Next Steps:</div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.8;">
+          1. <code style="color:#a5b4fc;">pip install sentence-transformers</code><br>
+          2. <code style="color:#a5b4fc;">pip install transformers</code><br>
+          3. Try image classification on your own photos<br>
+          4. Build a semantic search engine for customer reviews<br>
+          5. Explore huggingface.co/models
+        </div>
+      </div>
+
+      <div class="chip-cloud" style="margin-top:8px;">
+        <span class="chip" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;animation-delay:0.3s">✅ Semantic Layers</span>
+        <span class="chip" style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.3);color:#67e8f9;animation-delay:0.35s">✅ Image Tagging</span>
+        <span class="chip" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fcd34d;animation-delay:0.4s">✅ Rule vs Dynamic</span>
+        <span class="chip" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;animation-delay:0.45s">✅ NLP Demo</span>
+      </div>
+    </div>
+
+  </div><!-- /slide-container -->
+
+  <!-- CONTROLS -->
+  <div id="controls">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+      <div id="speaker-wave">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div id="narration-bar">Press ▶ Play to start narrated presentation</div>
+    </div>
+
+    <div id="slide-counter">SLIDE 1 / 13</div>
+
+    <div id="btn-row">
+      <button class="ctrl-btn" id="btn-prev" onclick="prevSlide()">◀</button>
+      <button class="ctrl-btn" id="btn-play" onclick="togglePlay()">▶ Play Narration</button>
+      <button class="ctrl-btn" id="btn-next" onclick="nextSlide()">▶</button>
+    </div>
+  </div>
+</div><!-- /app -->
+
+<script>
+// ── PARTICLE BACKGROUND ────────────────────────────────────────────
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+
+function resizeCanvas() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function createParticles() {
+  particles = [];
+  const n = Math.min(60, Math.floor(W * H / 14000));
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.5 + 0.3,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+      opacity: Math.random() * 0.4 + 0.1,
+      color: Math.random() > 0.5 ? '99,102,241' : '34,211,238'
+    });
+  }
+}
+
+function drawBg() {
+  ctx.clearRect(0, 0, W, H);
+  particles.forEach((p, i) => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${p.color},${p.opacity})`;
+    ctx.fill();
+    particles.slice(i + 1).forEach(p2 => {
+      const dx = p.x - p2.x, dy = p.y - p2.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 100) {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `rgba(99,102,241,${0.08 * (1 - d / 100)})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    });
+  });
+  requestAnimationFrame(drawBg);
+}
+
+resizeCanvas(); createParticles(); drawBg();
+window.addEventListener('resize', () => { resizeCanvas(); createParticles(); });
+
+// ── SLIDE LOGIC ────────────────────────────────────────────────────
+const slides = document.querySelectorAll('.slide');
+const totalSlides = slides.length;
+let currentSlide = 0;
+let isPlaying = false;
+let synth = window.speechSynthesis;
+let utterance = null;
+let autoAdvanceTimer = null;
+
+function updateProgress() {
+  const pct = ((currentSlide) / (totalSlides - 1)) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('slide-counter').textContent = `SLIDE ${currentSlide + 1} / ${totalSlides}`;
+}
+
+function goToSlide(idx, direction = 1) {
+  if (idx < 0 || idx >= totalSlides) return;
+  slides[currentSlide].classList.remove('active');
+  slides[currentSlide].classList.add('exit');
+  const prevIdx = currentSlide;
+  currentSlide = idx;
+  slides[currentSlide].classList.add('active');
+  setTimeout(() => slides[prevIdx].classList.remove('exit'), 500);
+  updateProgress();
+  if (isPlaying) {
+    speakSlide();
+  } else {
+    const nar = slides[currentSlide].dataset.narration;
+    document.getElementById('narration-bar').textContent = nar ? nar.substring(0, 120) + '...' : '';
+  }
+}
+
+function nextSlide() {
+  if (currentSlide < totalSlides - 1) goToSlide(currentSlide + 1, 1);
+  else if (isPlaying) stopPlay();
+}
+function prevSlide() {
+  if (currentSlide > 0) goToSlide(currentSlide - 1, -1);
+}
+
+function speakSlide() {
+  if (utterance) { synth.cancel(); }
+  const text = slides[currentSlide].dataset.narration;
+  if (!text) { autoAdvanceTimer = setTimeout(nextSlide, 1500); return; }
+
+  document.getElementById('narration-bar').textContent = text.substring(0, 140) + '...';
+  document.getElementById('speaker-wave').classList.add('active');
+
+  utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.92;
+  utterance.pitch = 1.05;
+  utterance.volume = 1;
+
+  // Try to get a good voice
+  const voices = synth.getVoices();
+  const preferred = voices.find(v =>
+    v.name.includes('Google UK English Female') ||
+    v.name.includes('Google US English') ||
+    v.name.includes('Samantha') ||
+    v.name.includes('Karen') ||
+    (v.lang === 'en-US' && v.localService)
+  ) || voices.find(v => v.lang.startsWith('en'));
+  if (preferred) utterance.voice = preferred;
+
+  utterance.onend = () => {
+    document.getElementById('speaker-wave').classList.remove('active');
+    if (isPlaying) {
+      autoAdvanceTimer = setTimeout(nextSlide, 800);
+    }
+  };
+  utterance.onerror = () => {
+    document.getElementById('speaker-wave').classList.remove('active');
+  };
+  synth.speak(utterance);
+}
+
+function togglePlay() {
+  if (isPlaying) {
+    stopPlay();
+  } else {
+    startPlay();
+  }
+}
+
+function startPlay() {
+  isPlaying = true;
+  const btn = document.getElementById('btn-play');
+  btn.textContent = '⏸ Pause';
+  btn.classList.add('playing');
+  speakSlide();
+}
+
+function stopPlay() {
+  isPlaying = false;
+  synth.cancel();
+  clearTimeout(autoAdvanceTimer);
+  document.getElementById('speaker-wave').classList.remove('active');
+  const btn = document.getElementById('btn-play');
+  btn.textContent = '▶ Play Narration';
+  btn.classList.remove('playing');
+}
+
+// Init narration preview
+updateProgress();
+const firstNar = slides[0].dataset.narration;
+if (firstNar) document.getElementById('narration-bar').textContent = firstNar.substring(0, 120) + '...';
+
+// Load voices async
+if (speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = () => {};
+}
+
+// ── SWIPE DETECTION ────────────────────────────────────────────────
+let touchStartX = 0;
+let touchStartY = 0;
+document.getElementById('slide-container').addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.getElementById('slide-container').addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+    if (dx < 0) nextSlide(); else prevSlide();
+  }
+}, { passive: true });
+
+// ── KEYBOARD ──────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextSlide();
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevSlide();
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+});
+
+// Remove swipe hint after 3s
+setTimeout(() => {
+  const hint = document.getElementById('swipe-hint');
+  if (hint) hint.remove();
+}, 3500);
+</script>
+</body>
+</html>
